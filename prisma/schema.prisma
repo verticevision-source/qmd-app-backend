@@ -1,0 +1,402 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  LEADER
+  ADMIN
+}
+
+enum MessageStatus {
+  SENT
+  REVIEWING
+  ANSWERED
+}
+
+enum PrayerVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  password        String
+  name            String
+  phone           String?
+  birthDate       DateTime?
+  memberSince     DateTime?
+  avatar          String?
+  role            Role      @default(MEMBER)
+  isActive        Boolean   @default(true)
+  emailVerified   Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  profile               Profile?
+  favoriteVerses        FavoriteVerse[]
+  verseNotes            VerseNote[]
+  readingPlanProgress   ReadingPlanProgress[]
+  prayerRequests        PrayerRequest[]
+  prayerIntercessions   PrayerIntercession[]
+  testimonies           Testimony[]
+  sentMessages          LeadershipMessage[]   @relation("SentMessages")
+  receivedMessages      LeadershipMessage[]   @relation("ReceivedMessages")
+  messageReplies        MessageReply[]
+  eventConfirmations    EventConfirmation[]
+  notifications         Notification[]
+
+  @@map("users")
+}
+
+model Profile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  bio         String?
+  address     String?
+  baptized    Boolean @default(false)
+  ministry    String?
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model DailyVerse {
+  id          String    @id @default(cuid())
+  reference   String
+  text        String
+  reflection  String?
+  date        DateTime  @unique @default(now())
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("daily_verses")
+}
+
+model PastoralMessage {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  authorId    String?
+  authorName  String
+  imageUrl    String?
+  isPublished Boolean   @default(true)
+  publishedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("pastoral_messages")
+}
+
+model Highlight {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String?
+  link        String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("highlights")
+}
+
+model BibleBook {
+  id        Int      @id
+  name      String
+  abbrev    String
+  testament String   // "OT" | "NT"
+  chapters  BibleChapter[]
+
+  @@map("bible_books")
+}
+
+model BibleChapter {
+  id        String   @id @default(cuid())
+  bookId    Int
+  number    Int
+  book      BibleBook  @relation(fields: [bookId], references: [id])
+  verses    BibleVerse[]
+
+  @@map("bible_chapters")
+}
+
+model BibleVerse {
+  id          String   @id @default(cuid())
+  chapterId   String
+  number      Int
+  text        String
+  chapter     BibleChapter @relation(fields: [chapterId], references: [id])
+  favorites   FavoriteVerse[]
+  notes       VerseNote[]
+
+  @@map("bible_verses")
+}
+
+model FavoriteVerse {
+  id        String   @id @default(cuid())
+  userId    String
+  verseId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verse     BibleVerse @relation(fields: [verseId], references: [id])
+
+  @@unique([userId, verseId])
+  @@map("favorite_verses")
+}
+
+model VerseNote {
+  id        String   @id @default(cuid())
+  userId    String
+  verseId   String
+  note      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verse     BibleVerse @relation(fields: [verseId], references: [id])
+
+  @@map("verse_notes")
+}
+
+model ReadingPlan {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  duration    Int      // days
+  category    String?
+  content     Json     // array of {day, reference, text}
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  progress    ReadingPlanProgress[]
+
+  @@map("reading_plans")
+}
+
+model ReadingPlanProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  planId      String
+  currentDay  Int      @default(1)
+  completed   Boolean  @default(false)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        ReadingPlan @relation(fields: [planId], references: [id])
+
+  @@unique([userId, planId])
+  @@map("reading_plan_progress")
+}
+
+model Devotional {
+  id          String   @id @default(cuid())
+  title       String
+  theme       String
+  content     String
+  verseRef    String?
+  verseText   String?
+  imageUrl    String?
+  authorName  String?
+  isPublished Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("devotionals")
+}
+
+model WeeklyVerse {
+  id        String   @id @default(cuid())
+  reference String
+  text      String
+  week      Int
+  year      Int
+  createdAt DateTime @default(now())
+
+  @@unique([week, year])
+  @@map("weekly_verses")
+}
+
+model PrayerRequest {
+  id          String           @id @default(cuid())
+  userId      String?
+  authorName  String?
+  title       String
+  description String
+  isAnonymous Boolean          @default(false)
+  visibility  PrayerVisibility @default(PUBLIC)
+  isApproved  Boolean          @default(true)
+  answeredAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  intercessions PrayerIntercession[]
+
+  @@map("prayer_requests")
+}
+
+model PrayerIntercession {
+  id        String   @id @default(cuid())
+  userId    String
+  requestId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request   PrayerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, requestId])
+  @@map("prayer_intercessions")
+}
+
+model Testimony {
+  id          String   @id @default(cuid())
+  userId      String?
+  authorName  String?
+  title       String
+  content     String
+  isAnonymous Boolean  @default(false)
+  isApproved  Boolean  @default(false)
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("testimonies")
+}
+
+model LeadershipMessage {
+  id          String        @id @default(cuid())
+  senderId    String?
+  leaderId    String?
+  senderName  String?
+  subject     String
+  message     String
+  isAnonymous Boolean       @default(false)
+  status      MessageStatus @default(SENT)
+  category    String?       // "counseling" | "question" | "general"
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  sender      User?         @relation("SentMessages", fields: [senderId], references: [id], onDelete: SetNull)
+  leader      User?         @relation("ReceivedMessages", fields: [leaderId], references: [id], onDelete: SetNull)
+  replies     MessageReply[]
+
+  @@map("leadership_messages")
+}
+
+model MessageReply {
+  id        String   @id @default(cuid())
+  messageId String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  message   LeadershipMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@map("message_replies")
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  imageUrl    String?
+  isPinned    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  expiresAt   DateTime?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("announcements")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  imageUrl    String?
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  type        String?  // "culto" | "celula" | "evento" | "reuniao"
+  isRecurring Boolean  @default(false)
+  streamUrl   String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  confirmations EventConfirmation[]
+
+  @@map("events")
+}
+
+model EventConfirmation {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@map("event_confirmations")
+}
+
+model SermonCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sermons   Sermon[]
+
+  @@map("sermon_categories")
+}
+
+model Sermon {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  preacher    String
+  categoryId  String?
+  videoUrl    String?
+  thumbnailUrl String?
+  verses      String?
+  duration    String?
+  isLive      Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  category    SermonCategory? @relation(fields: [categoryId], references: [id])
+
+  @@map("sermons")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String?
+  isRead    Boolean  @default(false)
+  data      Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
