@@ -47,6 +47,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'QMD App API está funcionando!', timestamp: new Date() });
@@ -55,7 +58,12 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api', routes);
 
-// 404 handler
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 404 handler (API only)
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Rota não encontrada' });
 });
