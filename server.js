@@ -52,7 +52,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'QMD App API está funcionando!', timestamp: new Date() });
+  const fs = require('fs');
+  const publicPath = path.join(__dirname, 'public');
+  let publicFiles = null;
+  try { publicFiles = fs.readdirSync(publicPath); } catch(e) { publicFiles = e.message; }
+  res.json({ status: 'ok', message: 'QMD App API está funcionando!', timestamp: new Date(), __dirname, publicPath, publicFiles });
 });
 
 // API Routes
